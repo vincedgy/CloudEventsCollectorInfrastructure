@@ -18,18 +18,12 @@ class PipelineConstruct(Construct):
     def __init__(self, scope: Construct, id: str, *, env: Environment):
         super().__init__(scope, id)
 
-        # Create or import GitHub token secret
-        github_secret = secretsmanager.Secret(self, "GitHubTokenSecret",
-            secret_name="github-token-secret",
-            description="GitHub OAuth token for CodePipeline GitHub source",
-            generate_secret_string=secretsmanager.SecretStringGenerator(
-                secret_string_template="{}",
-                generate_string_key="token",
-                exclude_punctuation=True,
-                include_space=False
-            )
+        # Import existing GitHub token secret from Secrets Manager
+        github_secret = secretsmanager.Secret.from_secret_name_v2(
+            self,
+            "GitHubTokenSecret",
+            "github-token-secret"
         )
-
         # Source from GitHub using the secret
         source = CodePipelineSource.git_hub(
             repo_string="vincedgy/CloudEventsCollectorInfrastructure",  # replace with your GitHub repo
