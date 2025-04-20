@@ -9,7 +9,7 @@ class KinesisConstruct(Construct):
     def __init__(self, scope: Construct, id: str):
         super().__init__(scope, id)
         self.stream = kinesis.Stream(self, "EventStream",
-            stream_name="event-stream",
+            #stream_name="event-stream",
             shard_count=1,
             retention_period=Duration.days(1)
         )
