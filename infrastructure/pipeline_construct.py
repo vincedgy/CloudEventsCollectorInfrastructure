@@ -28,7 +28,10 @@ class PipelineConstruct(Construct):
         source = CodePipelineSource.git_hub(
             repo_string="vincedgy/CloudEventsCollectorInfrastructure",  # replace with your GitHub repo
             branch="main",
-            authentication=SecretValue.secrets_manager(github_secret.secret_name)
+            authentication=SecretValue.secrets_manager(
+                github_secret.secret_name,
+                json_field=None
+                )
         )
 
         # CDK Pipeline
