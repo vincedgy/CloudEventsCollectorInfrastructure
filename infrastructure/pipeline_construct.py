@@ -7,7 +7,6 @@ from aws_cdk import (
 from aws_cdk.pipelines import CodePipeline, CodePipelineSource, ShellStep
 from aws_cdk import Stage
 from constructs import Construct
-from pipeline_stack import PipelineStack
 from event_pipeline_stack import EventPipelineStack
 
 class EventPipelineAppStage(Stage):
@@ -33,7 +32,7 @@ class PipelineConstruct(Construct):
 
         # Source from GitHub using the secret
         source = CodePipelineSource.git_hub(
-            repo_string="GITHUB_OWNER/GITHUB_REPO",  # replace with your GitHub repo
+            repo_string="vincedgy/CloudEventsCollectorInfrastructure",  # replace with your GitHub repo
             branch="main",
             authentication=SecretValue.secrets_manager(github_secret.secret_name)
         )
