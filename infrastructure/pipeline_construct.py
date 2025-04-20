@@ -1,12 +1,14 @@
 from aws_cdk import (
     pipelines as pipelines_mod,
-    aws_codecommit as codecommit,
-    Environment
+    Environment,
+    SecretValue,
+    aws_secretsmanager as secretsmanager
 )
-from constructs import Construct
-from aws_cdk.pipelines import CodePipeline, CodePipelineSource, ShellStep, CodeBuildStep
-from event_pipeline_stack import EventPipelineStack
+from aws_cdk.pipelines import CodePipeline, CodePipelineSource, ShellStep
 from aws_cdk import Stage
+from constructs import Construct
+from pipeline_stack import PipelineStack
+from event_pipeline_stack import EventPipelineStack
 
 class EventPipelineAppStage(Stage):
     def __init__(self, scope: Construct, id: str, *, env: Environment):
@@ -17,16 +19,30 @@ class PipelineConstruct(Construct):
     def __init__(self, scope: Construct, id: str, *, env: Environment):
         super().__init__(scope, id)
 
-        # CodeCommit repository
-        repo = codecommit.Repository(self, "Repo",
-            repository_name="event-pipeline-repo"
+        # Create or import GitHub token secret
+        github_secret = secretsmanager.Secret(self, "GitHubTokenSecret",
+            secret_name="github-token-secret",
+            description="GitHub OAuth token for CodePipeline GitHub source",
+            generate_secret_string=secretsmanager.SecretStringGenerator(
+                secret_string_template="{}",
+                generate_string_key="token",
+                exclude_punctuation=True,
+                include_space=False
+            )
+        )
+
+        # Source from GitHub using the secret
+        source = CodePipelineSource.git_hub(
+            repo_string="GITHUB_OWNER/GITHUB_REPO",  # replace with your GitHub repo
+            branch="main",
+            authentication=SecretValue.secrets_manager(github_secret.secret_name)
         )
 
         # CDK Pipeline
         pipeline = CodePipeline(self, "Pipeline",
             pipeline_name="EventPipelineCI",
             synth=ShellStep("Synth",
-                input=CodePipelineSource.code_commit(repo, "main"),
+                input=source,
                 install_commands=[
                     "python3 -m pip install --upgrade pip",
                     "pip install -r requirements.txt",
@@ -38,9 +54,7 @@ class PipelineConstruct(Construct):
             )
         )
 
-        # Deploy stage
+        # Deploy stage containing the EventPipelineStack
         pipeline.add_stage(
-            EventPipelineAppStage(self, "Deploy",
-                env=env
-            )
+            EventPipelineAppStage(self, "Deploy", env=env)
         )
