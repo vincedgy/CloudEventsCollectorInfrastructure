@@ -40,7 +40,8 @@ class FirehoseConstruct(Construct):
                 firehose.CfnDeliveryStream.S3DestinationConfigurationProperty(
                     bucket_arn=self.raw_bucket.bucket_arn,
                     role_arn=self.firehose_role.role_arn,
-                    prefix="application_name=!{partitionKey}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/",
+                    prefix="cloudevents/collector/!{partitionKey}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/",
+                    error_output_prefix="error/!{firehose:error-output-type}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/",
                     buffering_hints=firehose.CfnDeliveryStream.BufferingHintsProperty(
                         interval_in_seconds=60,
                         size_in_m_bs=5
