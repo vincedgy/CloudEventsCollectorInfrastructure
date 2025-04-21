@@ -5,6 +5,7 @@ from infrastructure.firehose_construct import FirehoseConstruct
 from infrastructure.dynamodb_construct import DynamoDbConstruct
 from infrastructure.processor_construct import ProcessorConstruct
 from infrastructure.layer_construct import LayerConstruct
+from infrastructure.event_producer import EventProducer
 
 class EventPipelineStack(Stack):
     def __init__(self, scope: Construct, id: str, *, env: Environment):
@@ -16,4 +17,5 @@ class EventPipelineStack(Stack):
         kinesis = KinesisConstruct(self, "Kinesis")
         firehose = FirehoseConstruct(self, "Firehose", stream=kinesis.stream)
         dynamodb = DynamoDbConstruct(self, "DynamoDb")
+        producer = EventProducer(self, "EventProducer")
         ProcessorConstruct(self, "Processor", stream=kinesis.stream, table=dynamodb.table)
