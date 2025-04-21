@@ -8,8 +8,8 @@ from constructs import Construct
 class KinesisConstruct(Construct):
     def __init__(self, scope: Construct, id: str):
         super().__init__(scope, id)
-        self.stream = kinesis.Stream(self, "EventStream",
-            #stream_name="event-stream",
+        self.stream = kinesis.Stream(self, "EventStreamProducer",
+            stream_name="event-stream-producer",
             shard_count=1,
             retention_period=Duration.days(1)
         )
