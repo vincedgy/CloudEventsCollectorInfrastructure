@@ -1,5 +1,5 @@
 from aws_cdk import (
-    Stack,
+    Stack, RemovalPolicy,
     Duration,
     aws_kinesis as kinesis,
     aws_iam as iam
@@ -15,6 +15,8 @@ class KinesisConstruct(Construct):
             retention_period=Duration.hours(24),
             stream_mode=kinesis.StreamMode.ON_DEMAND
         )
+        self.stream.apply_removal_policy(RemovalPolicy.DESTROY)  # Be careful with this in production!
+        
         self.producer_role = iam.Role(self, "ProducerRole",
             assumed_by=iam.AccountRootPrincipal()
         )
