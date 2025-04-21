@@ -9,7 +9,14 @@ from botocore.exceptions import ClientError
 _stream_name = os.getenv("EVENT_STREAM_NAME", "default-stream")
 _kinesis = boto3.client("kinesis")
 
-def send_event(application_name: str, payload: dict, metadata: dict = None) -> str:
+
+def send_event(
+    application_name: str,
+    payload: dict,
+    subject: str,
+    extensions: str,
+    metadata: dict
+) -> str:
     """
     Send a structured event to Kinesis Data Stream.
 
@@ -24,6 +31,8 @@ def send_event(application_name: str, payload: dict, metadata: dict = None) -> s
         "event_id": event_id,
         "application_name": application_name,
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "subject": subject,
+        "extensions": extensions,
         "payload": payload,
     }
     if metadata:
@@ -32,9 +41,7 @@ def send_event(application_name: str, payload: dict, metadata: dict = None) -> s
     data_bytes = json.dumps(event).encode("utf-8")
     try:
         _kinesis.put_record(
-            StreamName=_stream_name,
-            PartitionKey=application_name,
-            Data=data_bytes
+            StreamName=_stream_name, PartitionKey=application_name, Data=data_bytes
         )
     except ClientError:
         # optional: add retries/backoff here

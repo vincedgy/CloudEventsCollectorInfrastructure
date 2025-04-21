@@ -1,0 +1,444 @@
+Resources:
+  EventStream271A91DB:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: event-stream
+      RetentionPeriodHours: 24
+      ShardCount: 1
+      StreamEncryption:
+        Fn::If:
+          - AwsCdkKinesisEncryptedStreamsUnsupportedRegions
+          - Ref: AWS::NoValue
+          - EncryptionType: KMS
+            KeyId: alias/aws/kinesis
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      aws:cdk:path: EventPipelineStack/EventStream/Resource
+  ProducerRole1F1AC001:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              AWS: arn:aws:iam::982081067712:root
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: EventPipelineStack/ProducerRole/Resource
+  ProducerRoleDefaultPolicy7AF51AA1:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: kinesis:PutRecord
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - EventStream271A91DB
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: ProducerRoleDefaultPolicy7AF51AA1
+      Roles:
+        - Ref: ProducerRole1F1AC001
+    Metadata:
+      aws:cdk:path: EventPipelineStack/ProducerRole/DefaultPolicy/Resource
+  RawEventsBucket932A89CA:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: eventpipelinestack-raw-events
+      LifecycleConfiguration:
+        Rules:
+          - ExpirationInDays: 365
+            Status: Enabled
+            Transitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 30
+      Tags:
+        - Key: aws-cdk:auto-delete-objects
+          Value: "true"
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: EventPipelineStack/RawEventsBucket/Resource
+  RawEventsBucketPolicy6AE57473:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: RawEventsBucket932A89CA
+      PolicyDocument:
+        Statement:
+          - Action: s3:*
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+            Effect: Deny
+            Principal:
+              AWS: "*"
+            Resource:
+              - Fn::GetAtt:
+                  - RawEventsBucket932A89CA
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - RawEventsBucket932A89CA
+                        - Arn
+                    - /*
+          - Action:
+              - s3:DeleteObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:PutBucketPolicy
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::GetAtt:
+                  - CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092
+                  - Arn
+            Resource:
+              - Fn::GetAtt:
+                  - RawEventsBucket932A89CA
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - RawEventsBucket932A89CA
+                        - Arn
+                    - /*
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: EventPipelineStack/RawEventsBucket/Policy/Resource
+  RawEventsBucketAutoDeleteObjectsCustomResource5D7D4167:
+    Type: Custom::S3AutoDeleteObjects
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F
+          - Arn
+      BucketName:
+        Ref: RawEventsBucket932A89CA
+    DependsOn:
+      - RawEventsBucketPolicy6AE57473
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: EventPipelineStack/RawEventsBucket/AutoDeleteObjectsCustomResource/Default
+  CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+      ManagedPolicyArns:
+        - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: EventPipelineStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role
+  CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-982081067712-eu-west-1
+        S3Key: faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6.zip
+      Timeout: 900
+      MemorySize: 128
+      Handler: index.handler
+      Role:
+        Fn::GetAtt:
+          - CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092
+          - Arn
+      Runtime: nodejs20.x
+      Description:
+        Fn::Join:
+          - ""
+          - - "Lambda function for auto-deleting objects in "
+            - Ref: RawEventsBucket932A89CA
+            - " S3 bucket."
+    DependsOn:
+      - CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092
+    Metadata:
+      aws:cdk:path: EventPipelineStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler
+      aws:asset:path: asset.faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6
+      aws:asset:property: Code
+  FirehoseRoleAA67C190:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: EventPipelineStack/FirehoseRole/Resource
+  FirehoseRoleDefaultPolicyF034DFF7:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:Abort*
+              - s3:DeleteObject*
+              - s3:GetBucket*
+              - s3:GetObject*
+              - s3:List*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - RawEventsBucket932A89CA
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - RawEventsBucket932A89CA
+                        - Arn
+                    - /*
+        Version: "2012-10-17"
+      PolicyName: FirehoseRoleDefaultPolicyF034DFF7
+      Roles:
+        - Ref: FirehoseRoleAA67C190
+    Metadata:
+      aws:cdk:path: EventPipelineStack/FirehoseRole/DefaultPolicy/Resource
+  FirehoseToS3:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: EventPipelineStack-fh
+      KinesisStreamSourceConfiguration:
+        KinesisStreamARN:
+          Fn::GetAtt:
+            - EventStream271A91DB
+            - Arn
+        RoleARN:
+          Fn::GetAtt:
+            - FirehoseRoleAA67C190
+            - Arn
+      S3DestinationConfiguration:
+        BucketARN:
+          Fn::GetAtt:
+            - RawEventsBucket932A89CA
+            - Arn
+        BufferingHints:
+          IntervalInSeconds: 60
+          SizeInMBs: 128
+        CompressionFormat: GZIP
+        ErrorOutputPrefix: cloudevents/errors/!{firehose:random-string}/!{firehose:error-output-type}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/
+        Prefix: cloudevents/events/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/
+        RoleARN:
+          Fn::GetAtt:
+            - FirehoseRoleAA67C190
+            - Arn
+    Metadata:
+      aws:cdk:path: EventPipelineStack/FirehoseToS3
+  EventsTableD24865E5:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: application_name
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+        - AttributeName: event_id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      GlobalSecondaryIndexes:
+        - IndexName: eventIdIndex
+          KeySchema:
+            - AttributeName: event_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      KeySchema:
+        - AttributeName: application_name
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      aws:cdk:path: EventPipelineStack/EventsTable/Resource
+  StreamDLQ58286EC3:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: EventPipelineStack/StreamDLQ/Resource
+  ProcessorRoleFC8890DE:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: EventPipelineStack/ProcessorRole/Resource
+  ProcessorRoleDefaultPolicy1C43AEFA:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - dynamodb:BatchWriteItem
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - EventsTableD24865E5
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - EventsTableD24865E5
+                        - Arn
+                    - /index/*
+          - Action:
+              - kinesis:DescribeStream
+              - kinesis:DescribeStreamConsumer
+              - kinesis:DescribeStreamSummary
+              - kinesis:GetRecords
+              - kinesis:GetShardIterator
+              - kinesis:ListShards
+              - kinesis:ListStreams
+              - kinesis:SubscribeToShard
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - EventStream271A91DB
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: ProcessorRoleDefaultPolicy1C43AEFA
+      Roles:
+        - Ref: ProcessorRoleFC8890DE
+    Metadata:
+      aws:cdk:path: EventPipelineStack/ProcessorRole/DefaultPolicy/Resource
+  StreamToDynamoLambda5224CD2B:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-982081067712-eu-west-1
+        S3Key: f0c8881fbb38b5f9bd0f268efdfc86e31bcbc00e79b425c1f1bc7e3239acb352.zip
+      Environment:
+        Variables:
+          TABLE_NAME:
+            Ref: EventsTableD24865E5
+      Handler: handler.lambda_handler
+      Role:
+        Fn::GetAtt:
+          - ProcessorRoleFC8890DE
+          - Arn
+      Runtime: python3.9
+      Timeout: 60
+    DependsOn:
+      - ProcessorRoleDefaultPolicy1C43AEFA
+      - ProcessorRoleFC8890DE
+    Metadata:
+      aws:cdk:path: EventPipelineStack/StreamToDynamoLambda/Resource
+      aws:asset:path: asset.f0c8881fbb38b5f9bd0f268efdfc86e31bcbc00e79b425c1f1bc7e3239acb352
+      aws:asset:is-bundled: false
+      aws:asset:property: Code
+  StreamToDynamoLambdaKinesisEventSourceEventPipelineStackEventStream25468615E6D88358:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 100
+      BisectBatchOnFunctionError: true
+      EventSourceArn:
+        Fn::GetAtt:
+          - EventStream271A91DB
+          - Arn
+      FunctionName:
+        Ref: StreamToDynamoLambda5224CD2B
+      MaximumRetryAttempts: 2
+      StartingPosition: LATEST
+    Metadata:
+      aws:cdk:path: EventPipelineStack/StreamToDynamoLambda/KinesisEventSource:EventPipelineStackEventStream25468615/Resource
+  EventClientLayerF42DB2B3:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      CompatibleRuntimes:
+        - python3.9
+        - python3.10
+      Content:
+        S3Bucket: cdk-hnb659fds-assets-982081067712-eu-west-1
+        S3Key: bac49f82949d457bc0d1aaf77e8fa1a56ee10e242c600b75b3097703927f1e9f.zip
+      Description: Lambda layer with event_client
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      aws:cdk:path: EventPipelineStack/EventClientLayer/Resource
+      aws:asset:path: asset.bac49f82949d457bc0d1aaf77e8fa1a56ee10e242c600b75b3097703927f1e9f
+      aws:asset:is-bundled: false
+      aws:asset:property: Content
+  ProducerLambdaC55AC1D4:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-982081067712-eu-west-1
+        S3Key: 4509f5e9516453e6690d8afabacbdc91c32da7246d6fec48d3ca3338bdb3b0f9.zip
+      Environment:
+        Variables:
+          EVENT_STREAM_NAME:
+            Ref: EventStream271A91DB
+          APPLICATION_NAME: producer_lambda
+          EVENT_TYPE: com.mycompany.producer.event
+      Handler: handler.lambda_handler
+      Layers:
+        - Ref: EventClientLayerF42DB2B3
+      Role:
+        Fn::GetAtt:
+          - ProducerRole1F1AC001
+          - Arn
+      Runtime: python3.9
+      Timeout: 30
+    DependsOn:
+      - ProducerRoleDefaultPolicy7AF51AA1
+      - ProducerRole1F1AC001
+    Metadata:
+      aws:cdk:path: EventPipelineStack/ProducerLambda/Resource
+      aws:asset:path: asset.4509f5e9516453e6690d8afabacbdc91c32da7246d6fec48d3ca3338bdb3b0f9
+      aws:asset:is-bundled: false
+      aws:asset:property: Code
+  CDKMetadata:
+    Type: AWS::CDK::Metadata
+    Properties:
+      Analytics: v2:deflate64:H4sIAAAAAAAA/81WW2/TMBT+LeQReeGyF+AtGx2a6FhpCghNaHLs09bMsYPtFLKo/51jO27DOhASIPHU7Nwv3/m8p/mTZ8/zxw/oV3vE+M2RFFXel46yG4Ki6/5GKLDCepkBWl/1mQEHygmtZmCE5tmL7GFGMrumhp/qVrkkCPZvaA1BsP1ETpcqBtkSQeu8n2sJGI9a29bAT7rsRZ81RigmGioLxkbBoo13KJhPHUNuCXpzvtAzLQVD/6t++2kvTKEOtA7bW58ria3tdBjvN5R/odT/sKoLqugK+L6irB5LCjOY/9vZ/jxugI6vnUSx99mFW2ivOchyKOYcYe2gRvDaVPD/F+h+cZhAbH5L7HHen7TsBpy/ntbplyDxJi+rz8C8hzMtkKwKFrv7IxmopTYMynKaTKRYAuuYhHkrIaTKnKHKCo8Qm84WD77Wm/1KMg5427rLhmKn4yj3BwnjCW2HRmLxJP4MK+2HgkdkMdYPxifUwhVOaWClpTCw1hZytMYhiA2YLlIM4Z2iteZIZgtaBZ5pqHGhqNcQLkXtR+O6xn+WvlKrjfu1RSUkInh1obkXzYqP17PJ/Ho+eftuUi7SVF5JXVFZAtOKU9OdKw7fwnCE/xqtpTHa7w3rWsQcxXTqxb9TbUJGaBGB8QV5+m0LLfyEpqN1sNgSSeuK07w/a1VIjz6gNsJo5ZE35DIBsjGtqEG3ScFi9/5zTRWXYJIHko5IpB9nMRmHvdphgdyXUNIOjB2u5J/n/yPldFxqHG2aJZls0KXULR7cBW0ahIu/C2pWkBqAvUUiWP9o+rWr1UzH+1lgJyirm0FfgzOC2VOtlmKVfNqmQcyWx5fqjArZGniJPkLRyPMDG1DH1qW4TTOrhEXQnXjppZoYo02yvFsCOkyLhUe2ZwKfKXidI0EN6Wwqjn4LKnT+gCjXX/fyOd6B4cUqpUdwmq5wGKNxyR0RT6XEK74NlZ9R5nRaqk6tJSy0dSXv5gHlzyD9Q7IU0oX1jP6aKGa6Zv/+hZ0droqEzb5H73gWSHjMiL3fISViP1SoH2HJdN1gJ5UnxgBJO0o6zuAZ/RofaHA2L/zP1lvgjnlYAJmDDdUl/O3YlJy21ul6rI9P5SC4o58ZvREcjCdREhLhO7PCfrdk1rm1Vo+O8yfH+dMHn60QR8Md5UPx3wH4xeW/KAoAAA==
+    Metadata:
+      aws:cdk:path: EventPipelineStack/CDKMetadata/Default
+Conditions:
+  AwsCdkKinesisEncryptedStreamsUnsupportedRegions:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: AWS::Region
+          - cn-north-1
+      - Fn::Equals:
+          - Ref: AWS::Region
+          - cn-northwest-1
+Parameters:
+  BootstrapVersion:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /cdk-bootstrap/hnb659fds/version
+    Description: Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]
+
