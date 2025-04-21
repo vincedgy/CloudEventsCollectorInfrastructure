@@ -1,4 +1,5 @@
 from aws_cdk import (
+    Stack,
     Duration,
     aws_kinesis as kinesis,
     aws_iam as iam
@@ -9,9 +10,10 @@ class KinesisConstruct(Construct):
     def __init__(self, scope: Construct, id: str):
         super().__init__(scope, id)
         self.stream = kinesis.Stream(self, "EventStreamProducer",
-            stream_name="event-stream-producer",
-            shard_count=1,
-            retention_period=Duration.days(1)
+            stream_name=f"event-stream-{Stack.of(self).stack_name}",  # Add stack name for uniqueness
+            encryption=kinesis.StreamEncryption.MANAGED,
+            retention_period=Duration.hours(24),
+            stream_mode=kinesis.StreamMode.ON_DEMAND
         )
         self.producer_role = iam.Role(self, "ProducerRole",
             assumed_by=iam.AccountRootPrincipal()
